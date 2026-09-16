@@ -28,17 +28,32 @@ A lo largo del curso se profundiza de forma progresiva en:
 
 ---
 
+## 📋 Relación de Prácticas
+
+| Práctica | Directorio | Descripción | Estado |
+| :--- | :--- | :--- | :---: |
+| **Práctica 0** | [`fsiv_tutorial_opencv`](./fsiv_tutorial_opencv/) | **Tutorial OpenCV:** iniciación a CMake, carga/guardado de imágenes y secuencias de vídeo, recorrido pixel a pixel y cálculo de estadísticas básicas. | ✅ Completada |
+| **Práctica 1** | *Por determinar* | Próxima entrega | ⏳ Pendiente |
+
+---
+
 ## 📁 Estructura del Repositorio
 
 Cada práctica se gestiona de manera modular e independiente con su propia configuración de CMake:
 
 ```text
 PracticasVision_2627/
-├── PRACTICA_01/
+├── fsiv_tutorial_opencv/      # Práctica 0: Tutorial OpenCV
 │   ├── CMakeLists.txt
-│   ├── src/          # Código fuente (.cpp, .hpp)
-│   └── data/         # Imágenes o vídeos de prueba
-├── PRACTICA_02/
+│   ├── show_img.cpp           # Visualización básica de imágenes
+│   ├── show_video.cpp         # Captura y reproducción de vídeo
+│   ├── comp_stats.cpp         # Cálculo de estadísticas sobre imágenes
+│   ├── show_extremes.cpp      # Búsqueda y marcado de valores extremos
+│   ├── common_code.{cpp,hpp}  # Código auxiliar común y utilidades
+│   ├── test_common_code.cpp   # Tests unitarios
+│   ├── REPORT.md              # Memoria de la práctica
+│   └── data/                  # Datos e imágenes de prueba
+├── PRACTICA_01/               # Práctica 1 (próximamente)
 │   └── ...
 └── README.md
 ```
