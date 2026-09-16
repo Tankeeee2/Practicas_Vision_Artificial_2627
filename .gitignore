@@ -1,0 +1,25 @@
+# CMake
+build/
+bin/
+lib/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Compiled binaries and objects
+*.o
+*.out
+*.exe
+*.so
+*.a
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS artifacts
+.DS_Store
+Thumbs.db
