@@ -1,4 +1,5 @@
 #include "common_code.hpp"
+#include <opencv2/core/base.hpp>
 
 cv::Mat
 fsiv_convert_image_byte_to_float(const cv::Mat &img)
@@ -8,6 +9,7 @@ fsiv_convert_image_byte_to_float(const cv::Mat &img)
     //! TODO
     // Hint: use cv::Mat::convertTo().
 
+    img.convertTo(out, CV_32F,1.0/255.0);
     //
     CV_Assert(out.rows == img.rows && out.cols == img.cols);
     CV_Assert(out.depth() == CV_32F);
@@ -22,6 +24,7 @@ fsiv_convert_image_float_to_byte(const cv::Mat &img)
     cv::Mat out;
     //! TODO
     // Hint: use cv::Mat::convertTo()
+    img.convertTo(out, CV_8U, 255.0);
 
     //
     CV_Assert(out.rows == img.rows && out.cols == img.cols);
@@ -39,6 +42,7 @@ fsiv_convert_bgr_to_hsv(const cv::Mat &img)
     // Hint: use cvtColor.
     // Remember: the input color scheme is assumed to be BGR.
 
+    cv::cvtColor(img, out, cv::COLOR_BGR2HSV);
     //
     CV_Assert(out.channels() == 3);
     return out;
@@ -53,6 +57,7 @@ fsiv_convert_hsv_to_bgr(const cv::Mat &img)
     // Hint: use cvtColor.
     // Remember: the ouput color scheme is assumed to be BGR.
 
+    cv::cvtColor(img, out, cv::COLOR_HSV2BGR);
     //
     CV_Assert(out.channels() == 3);
     return out;
@@ -70,7 +75,26 @@ fsiv_cbg_process(const cv::Mat &in,
     // Hint: use cv::pow() to apply the gamma parameter.
     // Hint: if input channels is 3 and only luma is required, convert to HSV
     //       color space and process only de V (luma) channel.
+    
+    out = fsiv_convert_image_byte_to_float(in);
+    if(!only_luma){
+      cv::pow(out,gamma,out);
+      cv::multiply(cv::Scalar::all(contrast),out,out);
+      cv::add(cv::Scalar::all(brightness),out,out);
 
+    }  else {
+        out = fsiv_convert_bgr_to_hsv(out);
+        std::vector<cv::Mat> channels;
+        cv::split(out, channels);
+        cv::pow(channels[2], gamma, channels[2]);
+        channels[2] = channels[2] * contrast;
+        channels[2] = channels[2] + cv::Scalar::all(brightness);
+
+        cv::merge(channels, out);
+
+        out = fsiv_convert_hsv_to_bgr(out);
+    }
+    out = fsiv_convert_image_float_to_byte(out);
     //
     CV_Assert(out.rows == in.rows && out.cols == in.cols);
     CV_Assert(out.depth() == CV_8U);
