@@ -13,6 +13,8 @@ Este documento establece las directrices obligatorias y protocolos de entrega pa
 1. **Autoría y defensa:** El código lo has desarrollado tú mismo y, por lo tanto, podrás defenderlo en persona si eres requerido para ello.
 2. **Formato del archivo comprimido:**
    - Nombre de archivo obligatorio: `<tu-login-uco>.zip` (Ejemplo: `i42cagoj.zip`).
+   - **Límite de subida de Moodle:** **500 KB máximo**.
+   - Para cumplir este límite estricto, la entrega se compone **únicamente del código fuente C++, CMake y REPORT.md**. Se excluyen automáticamente la carpeta de datos (`data/` con vídeos e imágenes pesadas), PDFs de enunciados (`*.pdf`), imágenes de documentación (`.readme/`), carpetas de construcción (`build/`), archivos temporales de IDE (`.vscode/`, `.cache/`), carpetas de tests (`Testing/`), y binarios o ficheros objeto (`*.o`, `*.a`, `*.so`).
    - Al descomprimirse, **debe** generar exactamente la siguiente estructura de carpetas:
      ```text
      |- <tu-login-uco>

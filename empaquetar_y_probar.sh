@@ -153,8 +153,13 @@ trap TRAP_CLEANUP EXIT
 TARGET_STUDENT_DIR="${STAGE_DIR}/${LOGIN}"
 mkdir -p "${TARGET_STUDENT_DIR}"
 
-# Exclusiones para evitar archivos residuales, temporales y carpetas de build
+# Exclusiones para evitar binarios, datos multimedia pesados, PDFs y temporales
+# (Moodle tiene un límite estricto de 500 KB: la entrega es exclusivamente de fuentes y REPORT.md)
 RSYNC_EXCLUDES=(
+    "--exclude=data/"
+    "--exclude=*.pdf"
+    "--exclude=.readme*"
+    "--exclude=.vscode/"
     "--exclude=build*"
     "--exclude=.cache*"
     "--exclude=Testing*"
@@ -168,20 +173,30 @@ RSYNC_EXCLUDES=(
 )
 
 for EJ in "${EJERCICIOS[@]}"; do
-    echo -e "  Copiando ${EJ} de forma limpia..."
+    echo -e "  Copiando fuentes de ${EJ}..."
     mkdir -p "${TARGET_STUDENT_DIR}/${EJ}"
     rsync -a "${RSYNC_EXCLUDES[@]}" "${BASE_DIR}/${EJ}/" "${TARGET_STUDENT_DIR}/${EJ}/"
 done
 
-# Creación del zip
+# Creación del zip con compresión máxima (-9)
 rm -f "${DEST_ZIP}"
 (
     cd "${STAGE_DIR}"
-    zip -r -q "${DEST_ZIP}" "${LOGIN}"
+    zip -9 -r -q "${DEST_ZIP}" "${LOGIN}"
 )
 
-ZIP_SIZE=$(du -h "${DEST_ZIP}" | cut -f1)
-echo -e "${GREEN}  ZIP generado correctamente:${NC} ${DEST_ZIP} (${ZIP_SIZE})"
+ZIP_BYTES=$(stat -c%s "${DEST_ZIP}")
+ZIP_SIZE_KB=$(( (ZIP_BYTES + 1023) / 1024 ))
+MAX_BYTES=512000 # Límite estricto de Moodle: 500 KB
+
+echo -e "${GREEN}  ZIP generado correctamente:${NC} ${DEST_ZIP} (${ZIP_SIZE_KB} KB)"
+
+if [ "${ZIP_BYTES}" -gt "${MAX_BYTES}" ]; then
+    echo -e "${RED}[FALLO] El archivo generado (${ZIP_SIZE_KB} KB) supera el límite de subida de Moodle (500 KB).${NC}"
+    exit 1
+else
+    echo -e "${GREEN}  ✓ Tamaño dentro del límite de Moodle (máx 500 KB): ${ZIP_SIZE_KB} KB < 500 KB${NC}"
+fi
 
 # ------------------------------------------------------------------------------
 # 3. Simulación estricta de la secuencia de comprobación del profesor
@@ -265,7 +280,7 @@ echo -e "\n${BLUE}[4/4] Resultado final de la validación:${NC}"
 echo -e "${GREEN}========================================================================${NC}"
 echo -e "${GREEN}  ¡ENHORABUENA! La entrega cumple 100% con la normativa oficial.       ${NC}"
 echo -e "${GREEN}========================================================================${NC}"
-echo -e "Archivo listo para subir a Moodle: ${YELLOW}${DEST_ZIP}${NC} (${ZIP_SIZE})"
+echo -e "Archivo listo para subir a Moodle: ${YELLOW}${DEST_ZIP}${NC} (${ZIP_SIZE_KB} KB, dentro del límite de 500 KB)"
 echo -e "Estructura del archivo comprobada:"
 echo -e "  |- ${LOGIN}"
 for EJ in "${EJERCICIOS[@]}"; do
