@@ -252,8 +252,12 @@ int main(int argc, char *argv[])
             // Esto forzará a que se actualice la GUI con la imagen OUT.
             cv::setTrackbarPos("KEY", "OUT", app_state.hue);
             cv::setTrackbarPos("SENSITIVITY", "OUT", app_state.sensitivity);
-            int key = cv::waitKey(0) & 0xff; // Esperar hasta que se pulse una tecla.
-            if (key != 27 && outname != "")
+            int key = 0;
+            do
+            {
+                key = cv::waitKey(0) & 0xff;
+            } while (key != 27 && key != 13);
+            if (key == 13 && outname != "")
                 cv::imwrite(outname, app_state.output);
         }
 
