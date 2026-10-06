@@ -1,17 +1,21 @@
 # Qué he hecho y qué no
 
-_Describe de forma honesta qué funcionalidades has realizado de forma total o parcial, indicando en este caso qué problema has tenido para no poder implementarla de forma completa._
+Se ha completado todo el código requerido en `common_code.cpp`, pasando con éxito todos los tests unitarios (4/4):
+
+- `convert_image_bgr_to_hsv`: Ok
+- `fsiv_compute_chroma_key_mask`: Ok
+- `fsiv_combine_images`: Ok
+- `fsiv_apply_chroma_key`: Ok
+
+No queda ninguna parte pendiente por implementar.
 
 # Enlace al vídeo describiendo la práctica
 
-[https://youtu.be/xxx]
+[https://youtu.be/82acuG2JVEQ]
 
-No olvides añadir en la descripción del vídeo el índice de capítulos de la forma:
-
-```
 Capítulos:
-00:00 Explicación de la técnica
-01:30 Parámetro xxx
-03:00 Parámetro yyy
-...
+```
+00:00 Introducción: Objetivo de la técnica y espacio HSV
+00:39 Parámetro KEY (Tono clave y gestión circular del Hue)
+01:48 Parámetro SENSITIVITY (Tolerancia y filtrado de sombras)
 ```
