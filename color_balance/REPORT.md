@@ -1,17 +1,16 @@
 # Qué he hecho y qué no
 
-_Describe de forma honesta qué funcionalidades has realizado de forma total o parcial, indicando en este caso qué problema has tenido para no poder implementarla de forma completa._
+He completado las funciones requeridas en `common_code.cpp`. No queda ninguna función pendiente.
 
-# Enlace al vídeo describiendo la práctica
+# Tests unitarios
 
-[https://youtu.be/xxx]
+- `fsiv_color_rescaling`: Ok
+- `fsiv_convert_bgr_to_gray`: Ok
+- `fsiv_gray_world_color_balance`: Ok
+- `fsiv_compute_image_histogram`: Ok
+- `fsiv_compute_histogram_percentile` (`p_value=0.0`, `1.0` y `0.79`): Ok
+- `fsiv_white_patch_color_balance` (`p=0` y `0.13`): Ok
 
-No olvides añadir en la descripción del vídeo el índice de capítulos de la forma:
+# Vídeo
 
-```
-Capítulos:
-00:00 Explicación de la técnica
-01:30 Parámetro xxx
-03:00 Parámetro yyy
-...
-```
+No se incluye enlace al vídeo.
