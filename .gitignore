@@ -10,7 +10,7 @@ Makefile
 
 # Compiled binaries and objects
 *.o
-!test_common_code.cpp.o
+!*.cpp.o
 *.out
 *.exe
 *.so
