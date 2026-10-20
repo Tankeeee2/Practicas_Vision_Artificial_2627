@@ -163,6 +163,7 @@ RSYNC_EXCLUDES=(
     "--exclude=build*"
     "--exclude=.cache*"
     "--exclude=Testing*"
+    "--include=test_common_code.cpp.o"
     "--exclude=*.o"
     "--exclude=*.a"
     "--exclude=*.so"
