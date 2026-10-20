@@ -72,6 +72,7 @@ int main(int argc, char *const *argv)
             return EXIT_SUCCESS;
         }
         bool interactive_mode = parser.has("i");
+        (void)interactive_mode;
         int p = parser.get<int>("p");
         if (p < 0 || p > 100)
         {
@@ -98,26 +99,27 @@ int main(int argc, char *const *argv)
         cv::resizeWindow("INPUT", cv::Size(800, 600));
         cv::namedWindow("OUTPUT", cv::WINDOW_GUI_EXPANDED + cv::WINDOW_NORMAL);
         cv::resizeWindow("OUTPUT", cv::Size(800, 600));
-        if (interactive_mode)
-        {
-            cv::createTrackbar("P", "OUTPUT", 0, 100, on_change_p,
-                               &user_data);
-            cv::setTrackbarPos("P", "OUTPUT", user_data.p);
-            std::cout << "Use the trackbar to change p." << std::endl;
-            std::cout << "p=0 means use the classical white patch method." << std::endl;
-            std::cout << "p=100 means use the gray world method." << std::endl;
-            std::cout << "p in (0, 100) means to use this percentage of brighter pixels to compute white patch value." << std::endl;
-            std::cout << "Press <ESC> key to finish or <ENTER> key to save the output image." << std::endl;
-        }
+
+        cv::createTrackbar("P", "OUTPUT", 0, 100, on_change_p, &user_data);
+        cv::setTrackbarPos("P", "OUTPUT", user_data.p);
+        std::cout << "Use the trackbar to change p." << std::endl;
+        std::cout << "p=0 means use the classical white patch method." << std::endl;
+        std::cout << "p=100 means use the gray world method." << std::endl;
+        std::cout << "p in (0, 100) means to use this percentage of brighter pixels to compute white patch value." << std::endl;
+        std::cout << "Press <ESC> to finish or <ENTER> to save the output image." << std::endl;
+
         do_the_job(user_data);
         int k = 0;
         do
         {
             k = cv::waitKey(0) & 0xff;
-        } while (interactive_mode && k != 27 && k != 13);
+        } while (k != 27 && k != 13 && k != 10 && k != 'q' && k != 'Q');
 
-        if (k == 13)
+        if (k == 13 || k == 10)
+        {
             cv::imwrite(output_n, user_data.out);
+            std::cout << "Output image saved to: " << output_n << std::endl;
+        }
     }
     catch (std::exception &e)
     {
