@@ -18,7 +18,9 @@ fsiv_create_box_filter(const int r)
     cv::Mat ret_v;
     // TODO
     // Hint: use the constructor of cv::Mat to set the proper initial value.
-
+    double size = 2*r+1;
+    ret_v = cv::Mat::ones(size,size, CV_32FC1) * 1.0/(size*size);
+    
     //
     CV_Assert(ret_v.type() == CV_32FC1);
     CV_Assert(ret_v.rows == (2 * r + 1) && ret_v.rows == ret_v.cols);
@@ -33,6 +35,10 @@ fsiv_create_gaussian_filter(const int r)
     cv::Mat ret_v;
     // TODO
     // Hint: use cv::getGaussianKernel()
+
+    ret_v = cv::getGaussianKernel( (2*r+1) , -1.0 ,CV_32FC1);
+    ret_v = ret_v * ret_v.t();
+    //cv::normalize(ret_v,ret_v,1.0,0.0,cv::NORM_L1);
 
     //
     CV_Assert(ret_v.type() == CV_32FC1);
@@ -50,6 +56,8 @@ fsiv_fill_expansion(cv::Mat const &in, const int r)
     //! TODO:
     // Hint: use cv::copyMakeBorder() using the constant value 0 to fill the
     //       expanded area.
+    
+    cv::copyMakeBorder(in, ret_v, r, r, r, r, cv::BORDER_CONSTANT);
 
     //
     CV_Assert(ret_v.type() == in.type());
@@ -66,6 +74,8 @@ fsiv_circular_expansion(cv::Mat const &in, const int r)
     cv::Mat ret_v;
     //! TODO
     //  Hint: use cv::copyMakeBorder() filling with a wrapper image.
+    
+    cv::copyMakeBorder(in, ret_v, r, r, r, r, cv::BORDER_WRAP);
 
     //
     CV_Assert(ret_v.type() == in.type());
@@ -94,6 +104,18 @@ fsiv_filter2D(cv::Mat const &in, cv::Mat const &filter)
     //           we want you to code the convolution operation for ease of
     //           understanding. In real applications, you should use one of
     //           those functions.
+    int r = (filter.rows-1)/2;
+    ret_v = cv::Mat(in.rows-2*r,in.cols-2*r ,CV_32FC1);
+
+    for(int row=0 ; row<ret_v.rows ; row++){
+
+        for(int col=0;col<ret_v.cols;col++){
+
+            cv::Mat w = in(cv::Rect(col, row, 2*r+1, 2*r+1));
+            float result = cv::sum(w.mul(filter))[0];
+            ret_v.at<float>(row,col) = result;
+        }
+    }
 
     //
     CV_Assert(ret_v.type() == CV_32FC1);
@@ -113,6 +135,8 @@ fsiv_soft_combine_images(const cv::Mat src1, const cv::Mat src2,
 
     // TODO
     // Hint: use cv::addWeighted()
+
+    ret_v = a * src1 + b * src2;
 
     //
     CV_Assert(ret_v.type() == src2.type());
@@ -135,6 +159,32 @@ fsiv_usm_enhance(cv::Mat const &in, double g, int r,
     // Remember: use your own functions fsiv_xxxx
     // Remember: when unsharp_mask pointer is nullptr, means don't save the
     //           unsharp mask on int.
+
+    cv::Mat filter;
+
+    if(filter_type==0){
+        filter = fsiv_create_box_filter(r);
+    }else{
+        filter = fsiv_create_gaussian_filter(r);
+    }
+
+    cv::Mat in_exp;
+    
+    if(circular){
+        in_exp=fsiv_circular_expansion(in,r);
+    }else{
+        in_exp=fsiv_fill_expansion(in,r);
+    }
+    
+    cv::Mat in_low = fsiv_filter2D(in_exp,filter);
+
+    cv::Mat unsharp = in - in_low;
+
+    if (unsharp_mask != nullptr) {
+        *unsharp_mask = unsharp;
+    }
+    
+    ret_v = fsiv_soft_combine_images(in,in_low,1.0 + g,-g);
 
     //
     CV_Assert(ret_v.rows == in.rows);
