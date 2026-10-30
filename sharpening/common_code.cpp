@@ -9,7 +9,9 @@ fsiv_create_gaussian_filter(const int r)
     cv::Mat ret_v;
     //! TODO
     // Hint: use cv::getGaussianKernel()
-
+    ret_v = cv::getGaussianKernel((2*r+1),-1.0,CV_32FC1);
+    ret_v *= ret_v.t();
+    cv::normalize(ret_v,ret_v,1.0,0.0,cv::NORM_L1);
     //
     CV_Assert(ret_v.type() == CV_32FC1);
     CV_Assert(ret_v.rows == (2 * r + 1) && ret_v.rows == ret_v.cols);
@@ -24,6 +26,14 @@ cv::Mat fsiv_create_lap4_filter()
     // Hint: you can use a comma-separated initializer.
     //       See: https://docs.opencv.org/4.5.5/d6/d9e/classcv_1_1MatCommaInitializer__.html
 
+    ret_v = cv::Mat::zeros(3,3,CV_32F);
+    ret_v.at<float>(0,1) = 1.0;
+    ret_v.at<float>(1,0) = 1.0;
+    ret_v.at<float>(1,1) = -4.0;
+    ret_v.at<float>(1,2) = 1.0;
+    ret_v.at<float>(2,1) = 1.0;
+    
+    
     //
     CV_Assert(!ret_v.empty());
     CV_Assert(ret_v.rows == 3 && ret_v.cols == 3);
@@ -37,6 +47,9 @@ cv::Mat fsiv_create_lap8_filter()
     //! TODO
     // Hint: you can use a comma-separated initializer.
     //       See: https://docs.opencv.org/4.5.5/d6/d9e/classcv_1_1MatCommaInitializer__.html
+
+    ret_v = cv::Mat::ones(3,3,CV_32F);
+    ret_v.at<float>(1,1) = -8.0;
 
     //
     CV_Assert(!ret_v.empty());
@@ -54,7 +67,7 @@ fsiv_fill_expansion(cv::Mat const &in, const int r)
     //! TODO:
     // Hint: use cv::copyMakeBorder() using the constant value 0 to fill the
     //       expanded area.
-
+    cv::copyMakeBorder(in,ret_v,r,r,r,r,cv::BORDER_CONSTANT,0);
     //
     CV_Assert(ret_v.type() == in.type());
     CV_Assert(ret_v.rows == in.rows + 2 * r);
@@ -70,7 +83,7 @@ fsiv_circular_expansion(cv::Mat const &in, const int r)
     cv::Mat ret_v;
     //! TODO
     //  Hint: use cv::copyMakeBorder() filling with border wrap extrapolation.
-
+    cv::copyMakeBorder(in, ret_v, r, r, r, r, cv::BORDER_WRAP);
     //
     CV_Assert(ret_v.type() == in.type());
     CV_Assert(ret_v.rows == in.rows + 2 * r);
@@ -95,7 +108,10 @@ cv::Mat fsiv_create_dog_filter(int r1, int r2)
     // Hint: use fsiv_create_gaussian_filter() and fsiv_fill_expansion() to
     //       expand the smaller filter to be the same size as the larger one,
     //       so you can get the difference of both.
-
+    cv::Mat g1 = fsiv_create_gaussian_filter(r1);
+    cv::Mat g2 = fsiv_create_gaussian_filter(r2);
+    cv::Mat g1_expanded = fsiv_fill_expansion(g1, r2 - r1);
+    ret_v = g2 - g1_expanded;
     //
 
     CV_Assert(!ret_v.empty());
@@ -112,7 +128,18 @@ fsiv_create_sharpening_filter(const int filter_type, int r1, int r2)
     cv::Mat filter;
     //! TODO
     //  Remember: sharpening filter = -Laplacian + [1]
+    if (filter_type == 0){
+        filter = fsiv_create_lap4_filter();
+    }
+    else if (filter_type == 1){
+        filter = fsiv_create_lap8_filter();
+    }
+    else{
+        filter = fsiv_create_dog_filter(r1, r2);
+    }
 
+    filter *= -1.0;
+    filter.at<float>(filter.rows / 2, filter.cols / 2) += 1.0;
     //
     CV_Assert(!filter.empty() && filter.type() == CV_32FC1);
     CV_Assert((filter_type == 2) || (filter.rows == 3 && filter.cols == 3));
@@ -139,7 +166,14 @@ fsiv_image_sharpening(const cv::Mat &in, int filter_type,
     // Remember: the convolved output image has the extended size but we need
     //           to return one with size equal to the input size. You can use
     //           cv::Mat::copyTo on a centered window to extract the result.
+    cv::Mat exp;
+    cv::Mat filter = fsiv_create_sharpening_filter(filter_type, r1, r2);
+    if(circular){exp = fsiv_circular_expansion(in, r2);}
+    else{exp = fsiv_fill_expansion(in, r2);}
 
+    cv::filter2D(exp, out, -1, filter, cv::Point(-1, -1), 0, cv::BORDER_ISOLATED);
+    cv::Rect aux(r2, r2, in.cols, in.rows);
+    out(aux).copyTo(out);
     //
     CV_Assert(out.type() == in.type());
     CV_Assert(out.size() == in.size());
