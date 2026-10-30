@@ -11,9 +11,13 @@ Makefile
 # Compiled binaries and objects
 *.o
 !*.cpp.o
+!*.cpp-macos.o
+!test_common_code*.o
+!test_*.o
 *.out
 *.exe
 *.so
+!solutions_ref*.so
 *.a
 
 # IDEs and editors
