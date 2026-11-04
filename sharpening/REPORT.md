@@ -15,4 +15,4 @@ No queda ninguna parte pendiente por implementar en el código fuente.
 
 # Enlace al vídeo describiendo la práctica
 
-No se ha podido incluir el vídeo explicativo por falta de tiempo previo a la entrega.
+No he hecho vídeo para la práctica.
