@@ -20,7 +20,11 @@ fsiv_generate_3d_calibration_points(const cv::Size &board_size,
     std::vector<cv::Point3f> ret_v;
     // TODO
     // Remember: the first inner point has (1,1) in board coordinates.
-
+    for(int r=1; r<=board_size.height;r++){
+        for(int c=1 ; c<=board_size.width; c++){
+            ret_v.push_back(cv::Point3f( c * square_size, r * square_size, 0.0));
+        }
+    }
     //
     CV_Assert(ret_v.size() == static_cast<size_t>(board_size.width * board_size.height));
     return ret_v;
@@ -37,7 +41,14 @@ bool fsiv_find_chessboard_corners(const cv::Mat &img, const cv::Size &board_size
     // TODO
     // Hint: use cv::findChessboardCorners and cv::cornerSubPix.
     // Remember: cornerSubPix requires a grayscale image.
-
+    was_found = cv::findChessboardCorners(img, board_size, corner_points);
+    if (was_found)
+    {
+        cv::Mat gray;
+        cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
+        cv::cornerSubPix(gray, corner_points, cv::Size(win_r, win_r),
+                         cv::Size(zz_r, zz_r), tcr);
+    }
     //
     CV_Assert(!was_found || static_cast<int>(corner_points.size()) == (board_size.width * board_size.height));
     return was_found;
@@ -56,7 +67,13 @@ float fsiv_calibrate_camera(const std::vector<std::vector<cv::Point2f>> &_2d_poi
     // TODO
     // Hint: use cv::calibrateCamera.
     // Remember: if rvecs or tvecs are not nullptr, save the rotation and translation vectors.
+    std::vector<cv::Mat> r_vecs;
+    std::vector<cv::Mat> t_vecs;
+    error = cv::calibrateCamera(_3d_points,_2d_points,camera_size,camera_matrix,dist_coeffs,r_vecs,t_vecs);
 
+    if (rvecs) *rvecs = r_vecs;
+
+    if (tvecs) *tvecs = t_vecs;
     //
     CV_Assert(camera_matrix.rows == camera_matrix.cols &&
               camera_matrix.rows == 3 &&
@@ -84,7 +101,13 @@ void fsiv_save_calibration_parameters(cv::FileStorage &fs,
     // TODO
     // Hint: use cv::FileStorage "<<" operator to save the data.
     // Remember: the labels are: image-width, image-height, error, camera-matrix, distortion-coefficients, rvec, tvec.
-
+    fs << "image-width" << camera_size.width;
+    fs << "image-height" << camera_size.height;
+    fs << "error" << error;
+    fs << "camera-matrix" << camera_matrix;
+    fs << "distortion-coefficients" << dist_coeffs;
+    fs << "rvec" << rvec;
+    fs << "tvec" << tvec;
     //
     CV_Assert(fs.isOpened());
     return;
@@ -102,7 +125,13 @@ void fsiv_load_calibration_parameters(cv::FileStorage &fs,
     // TODO
     // Hint: use cv::FileStorage ">>" operator to load the data.
     // Remember: the labels are: image-width, image-height, error, camera-matrix, distortion-coefficients, rvec, tvec.
-
+    fs["image-width"] >> camera_size.width;
+    fs["image-height"] >> camera_size.height;
+    fs["error"] >> error;
+    fs["camera-matrix"] >> camera_matrix;
+    fs["distortion-coefficients"] >> dist_coeffs;
+    fs["rvec"] >> rvec;
+    fs["tvec"] >> tvec;
     //
     CV_Assert(fs.isOpened());
     CV_Assert(camera_matrix.type() == CV_64FC1 && camera_matrix.rows == 3 && camera_matrix.cols == 3);
@@ -119,6 +148,7 @@ void fsiv_undistort_image(const cv::Mat &input, cv::Mat &output,
     // TODO
     // Hint: use cv::undistort.
 
+    cv::undistort(input,output,camera_matrix,dist_coeffs);
     //
 }
 
@@ -139,7 +169,32 @@ void fsiv_undistort_video_stream(cv::VideoCapture &input_stream,
     //  and then, for the rest of video frames, only remap (cv::remap)
     //  the input frame using the computed maps.
     // Remember: if input_wname or output_wname are not nullptr, show the frames.
+    cv::Mat map1, map2, frame;
 
+    input_stream.read(frame);
+    cv::initUndistortRectifyMap(camera_matrix, dist_coeffs, cv::Mat(), cv::Mat(), frame.size(), CV_32FC2, map1, map2);
+
+    int delay = static_cast<int>(1000.0 / fps);
+
+    do
+    {
+        cv::Mat output;
+        cv::remap(frame, output, map1, map2, interp);
+
+        output_stream.write(output);
+
+        if (input_wname != nullptr)
+        {
+            cv::imshow(input_wname, frame);
+            cv::waitKey(delay);
+        }
+
+        if (output_wname != nullptr)
+        {
+            cv::imshow(output_wname, output);
+            cv::waitKey(delay);
+        }
+    } while (input_stream.read(frame));
     //
     CV_Assert(input_stream.isOpened());
     CV_Assert(output_stream.isOpened());
