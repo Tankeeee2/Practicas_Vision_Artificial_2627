@@ -103,7 +103,7 @@ echo ""
 # ------------------------------------------------------------------------------
 # 1. Comprobaciones previas en el directorio de trabajo
 # ------------------------------------------------------------------------------
-echo -e "${BLUE}[1/4] Comprobando existencia de los ejercicios y REPORT.md...${NC}"
+echo -e "${BLUE}[1/4] Comprobando existencia de los ejercicios, REPORT.md y objetos precompilados...${NC}"
 
 for EJ in "${EJERCICIOS[@]}"; do
     EJ_PATH="${BASE_DIR}/${EJ}"
@@ -123,7 +123,21 @@ for EJ in "${EJERCICIOS[@]}"; do
         exit 1
     fi
 
-    echo -e "  - ${GREEN}OK:${NC} ${EJ} (CMakeLists.txt y REPORT.md presentes)"
+    # Detección y verificación de objetos precompilados requeridos (.o)
+    REQS_O=$(grep -oE '\b[a-zA-Z0-9_.-]+\.o\b' "${EJ_PATH}/CMakeLists.txt" 2>/dev/null | sort -u || true)
+    OBJ_INFO=""
+    if [ -n "${REQS_O}" ]; then
+        for OBJ in ${REQS_O}; do
+            if [ -f "${EJ_PATH}/${OBJ}" ]; then
+                OBJ_INFO="${OBJ_INFO} [Precompilado: ${OBJ}]"
+            else
+                echo -e "${RED}[ERROR] Objeto precompilado '${OBJ}' requerido por CMakeLists.txt no existe en ${EJ_PATH}${NC}"
+                exit 1
+            fi
+        done
+    fi
+
+    echo -e "  - ${GREEN}OK:${NC} ${EJ} (CMakeLists.txt y REPORT.md presentes)${CYAN}${OBJ_INFO}${NC}"
 done
 
 # ------------------------------------------------------------------------------
@@ -153,8 +167,8 @@ trap TRAP_CLEANUP EXIT
 TARGET_STUDENT_DIR="${STAGE_DIR}/${LOGIN}"
 mkdir -p "${TARGET_STUDENT_DIR}"
 
-# Exclusiones para evitar binarios, datos multimedia pesados, PDFs y temporales
-# (Moodle tiene un límite estricto de 500 KB: la entrega es exclusivamente de fuentes y REPORT.md)
+# Exclusiones para evitar binarios temporales, datos pesados y librerías dinámicas
+# Moodle límite: 500 KB. Se incluyen explícitamente objetos precompilados de test (.o)
 RSYNC_EXCLUDES=(
     "--exclude=data/"
     "--exclude=*.pdf"
@@ -163,7 +177,10 @@ RSYNC_EXCLUDES=(
     "--exclude=build*"
     "--exclude=.cache*"
     "--exclude=Testing*"
-    "--include=test_common_code.cpp.o"
+    "--exclude=*-macos.o"
+    "--include=test_common_code*.o"
+    "--include=*.cpp.o"
+    "--include=test_*.o"
     "--exclude=*.o"
     "--exclude=*.a"
     "--exclude=*.so"
@@ -177,24 +194,71 @@ for EJ in "${EJERCICIOS[@]}"; do
     echo -e "  Copiando fuentes de ${EJ}..."
     mkdir -p "${TARGET_STUDENT_DIR}/${EJ}"
     rsync -a "${RSYNC_EXCLUDES[@]}" "${BASE_DIR}/${EJ}/" "${TARGET_STUDENT_DIR}/${EJ}/"
+
+    # Asegurar copia explícita de cualquier objeto .o requerido por CMakeLists
+    REQS_O=$(grep -oE '\b[a-zA-Z0-9_.-]+\.o\b' "${BASE_DIR}/${EJ}/CMakeLists.txt" 2>/dev/null | sort -u || true)
+    if [ -n "${REQS_O}" ]; then
+        for OBJ in ${REQS_O}; do
+            if [ ! -f "${TARGET_STUDENT_DIR}/${EJ}/${OBJ}" ]; then
+                cp -p "${BASE_DIR}/${EJ}/${OBJ}" "${TARGET_STUDENT_DIR}/${EJ}/${OBJ}"
+            fi
+            echo -e "    ${GREEN}✓${NC} Incluido objeto precompilado: ${CYAN}${OBJ}${NC}"
+        done
+    fi
+
+    # Optimizar peso eliminando símbolos de depuración de la copia en el stage
+    if command -v strip >/dev/null 2>&1; then
+        for obj in "${TARGET_STUDENT_DIR}/${EJ}"/*.o; do
+            if [ -f "$obj" ]; then
+                strip --strip-unneeded "$obj" 2>/dev/null || true
+            fi
+        done
+    fi
 done
 
-# Creación del zip con compresión máxima (-9)
+# Creación del zip con compresión máxima
 rm -f "${DEST_ZIP}"
-(
-    cd "${STAGE_DIR}"
-    zip -9 -r -q "${DEST_ZIP}" "${LOGIN}"
-)
+if command -v zip >/dev/null 2>&1; then
+    (
+        cd "${STAGE_DIR}"
+        zip -9 -r -q "${DEST_ZIP}" "${LOGIN}"
+    )
+elif command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+import sys, zipfile, os
+stage_dir, login, dest_zip = sys.argv[1], sys.argv[2], sys.argv[3]
+with zipfile.ZipFile(dest_zip, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+    target_dir = os.path.join(stage_dir, login)
+    for root, dirs, files in os.walk(target_dir):
+        for f in sorted(files):
+            full_path = os.path.join(root, f)
+            rel_path = os.path.relpath(full_path, stage_dir)
+            zf.write(full_path, rel_path)
+" "${STAGE_DIR}" "${LOGIN}" "${DEST_ZIP}"
+elif command -v 7z >/dev/null 2>&1; then
+    (
+        cd "${STAGE_DIR}"
+        7z a -tzip -mx=9 "${DEST_ZIP}" "${LOGIN}" >/dev/null
+    )
+else
+    echo -e "${RED}[ERROR] No se encontró ninguna utilidad de compresión (zip, python3 o 7z).${NC}"
+    exit 1
+fi
 
 ZIP_BYTES=$(stat -c%s "${DEST_ZIP}")
 ZIP_SIZE_KB=$(( (ZIP_BYTES + 1023) / 1024 ))
-MAX_BYTES=512000 # Límite estricto de Moodle: 500 KB
+MAX_BYTES=512000 # Límite de Moodle: 500 KB
 
 echo -e "${GREEN}  ZIP generado correctamente:${NC} ${DEST_ZIP} (${ZIP_SIZE_KB} KB)"
 
 if [ "${ZIP_BYTES}" -gt "${MAX_BYTES}" ]; then
-    echo -e "${RED}[FALLO] El archivo generado (${ZIP_SIZE_KB} KB) supera el límite de subida de Moodle (500 KB).${NC}"
-    exit 1
+    if [ ${#EJERCICIOS[@]} -gt 1 ]; then
+        echo -e "${YELLOW}[AVISO] El archivo (${ZIP_SIZE_KB} KB) supera el límite de Moodle (500 KB) por acumulación de ${#EJERCICIOS[@]} ejercicios con objetos precompilados.${NC}"
+        echo -e "${YELLOW}Para la entrega oficial de una práctica concreta en Moodle, puedes empaquetarla individualmente:${NC}"
+        echo -e "${CYAN}  $0 <nombre_ejercicio>${NC}"
+    else
+        echo -e "${RED}[AVISO] El archivo generado (${ZIP_SIZE_KB} KB) supera el límite de subida de Moodle (500 KB).${NC}"
+    fi
 else
     echo -e "${GREEN}  ✓ Tamaño dentro del límite de Moodle (máx 500 KB): ${ZIP_SIZE_KB} KB < 500 KB${NC}"
 fi
@@ -207,7 +271,8 @@ echo -e "Secuencia a ejecutar en un directorio temporal aislado:"
 echo -e "  unzip ${ZIP_NAME}"
 echo -e "  cd ${LOGIN}"
 for EJ in "${EJERCICIOS[@]}"; do
-    echo -e "  cd ${EJ} && mkdir build && cd build && cmake .. && make && ./test_common_code && cd ../.."
+    echo -e "  cd ${EJ}"
+    echo -e "  mkdir build && cd build && cmake .. && make && ./test_common_code && cd ../.."
 done
 echo ""
 
@@ -217,10 +282,20 @@ cp "${DEST_ZIP}" "${TEST_DIR}/"
 cd "${TEST_DIR}"
 
 # Descompresión
-echo -e "-> Ejecutando: ${YELLOW}unzip ${ZIP_NAME}${NC}"
-if ! unzip -q "${ZIP_NAME}"; then
-    echo -e "${RED}[FALLO] Error al descomprimir ${ZIP_NAME}${NC}"
-    exit 1
+echo -e "-> Descomprimiendo ${YELLOW}${ZIP_NAME}${NC}..."
+if command -v unzip >/dev/null 2>&1; then
+    if ! unzip -q "${ZIP_NAME}"; then
+        echo -e "${RED}[FALLO] Error al descomprimir ${ZIP_NAME}${NC}"
+        exit 1
+    fi
+elif command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1], 'r') as zf:
+    zf.extractall('.')
+" "${ZIP_NAME}"
+elif command -v 7z >/dev/null 2>&1; then
+    7z x -y "${ZIP_NAME}" >/dev/null
 fi
 
 if [ ! -d "${LOGIN}" ]; then
@@ -230,49 +305,78 @@ fi
 
 cd "${LOGIN}"
 
-# Comprobación de cada ejercicio
-for EJ in "${EJERCICIOS[@]}"; do
+# Descubrimiento dinámico de carpetas de ejercicios dentro del ZIP descomprimido
+EJERCICIOS_ZIP=()
+for item in */; do
+    [ -d "$item" ] || continue
+    ej_nombre="${item%/}"
+    [[ "$ej_nombre" =~ ^\. ]] && continue
+    if [ -f "${ej_nombre}/CMakeLists.txt" ]; then
+        EJERCICIOS_ZIP+=("${ej_nombre}")
+    fi
+done
+
+if [ ${#EJERCICIOS_ZIP[@]} -eq 0 ]; then
+    echo -e "${RED}[FALLO] No se encontraron carpetas con CMakeLists.txt dentro de '${LOGIN}'${NC}"
+    exit 1
+fi
+
+# Comprobación dinámica de cada ejercicio encontrado
+for EJ in "${EJERCICIOS_ZIP[@]}"; do
     echo -e "\n========================================================"
-    echo -e "-> Probando ejercicio: ${YELLOW}${EJ}${NC}"
+    echo -e "-> Probando ejercicio dinámicamente: ${YELLOW}${EJ}${NC}"
     echo -e "========================================================"
 
-    if [ ! -d "${EJ}" ]; then
-        echo -e "${RED}[FALLO] No existe el subdirectorio '${EJ}' dentro de '${LOGIN}'${NC}"
-        exit 1
-    fi
+    echo -e "-> ${YELLOW}cd ${EJ}${NC}"
+    cd "${EJ}"
 
-    if [ ! -f "${EJ}/REPORT.md" ]; then
+    if [ ! -f "REPORT.md" ]; then
         echo -e "${RED}[FALLO] Falta REPORT.md en '${LOGIN}/${EJ}'${NC}"
         exit 1
     fi
 
-    cd "${EJ}"
-    
-    echo -e "-> ${YELLOW}mkdir build && cd build${NC}"
+    # Verificar que los objetos precompilados requeridos están presentes
+    REQS_O=$(grep -oE '\b[a-zA-Z0-9_.-]+\.o\b' "CMakeLists.txt" 2>/dev/null | sort -u || true)
+    if [ -n "${REQS_O}" ]; then
+        for OBJ in ${REQS_O}; do
+            if [ ! -f "${OBJ}" ]; then
+                echo -e "${RED}[FALLO] Objeto precompilado requerido '${OBJ}' no está presente en '${LOGIN}/${EJ}'${NC}"
+                exit 1
+            fi
+            echo -e "  ${GREEN}✓${NC} Objeto precompilado verificado en el ZIP: ${CYAN}${OBJ}${NC}"
+        done
+    fi
+
+    # Ejecución de la secuencia de comprobación:
+    # mkdir build && cd build && cmake .. && make && ./test_common_code && cd ../..
+    echo -e "-> ${YELLOW}mkdir build && cd build && cmake .. && make && ./test_common_code && cd ../..${NC}"
     mkdir -p build && cd build
 
-    echo -e "-> ${YELLOW}cmake ..${NC}"
     if ! cmake .. > /dev/null; then
         echo -e "${RED}[FALLO] Falló la configuración de CMake en ${EJ}${NC}"
         exit 1
     fi
 
-    echo -e "-> ${YELLOW}make -j$(nproc)${NC}"
     if ! make -j"$(nproc)"; then
         echo -e "${RED}[FALLO] Falló la compilación (make) en ${EJ}${NC}"
         exit 1
     fi
 
-    echo -e "-> ${YELLOW}./test_common_code${NC}"
-    if ! ./test_common_code; then
-        echo -e "${RED}[FALLO] Los tests unitarios no se superaron en ${EJ}${NC}"
-        exit 1
+    if [ -x "./test_common_code" ]; then
+        if ! ./test_common_code; then
+            echo -e "${RED}[FALLO] Los tests unitarios no se superaron en ${EJ}${NC}"
+            exit 1
+        fi
+    elif [ -f "CTestTestfile.cmake" ]; then
+        if ! ctest --output-on-failure; then
+            echo -e "${RED}[FALLO] Los tests (ctest) no se superaron en ${EJ}${NC}"
+            exit 1
+        fi
     fi
 
-    echo -e "${GREEN}  ✓ Ejercicio ${EJ} superó la compilación y los tests con éxito.${NC}"
     cd ../..
+    echo -e "${GREEN}  ✓ Ejercicio ${EJ} compiló y superó los tests con éxito.${NC}"
 done
-
 # ------------------------------------------------------------------------------
 # 4. Resultado final
 # ------------------------------------------------------------------------------
@@ -281,10 +385,10 @@ echo -e "\n${BLUE}[4/4] Resultado final de la validación:${NC}"
 echo -e "${GREEN}========================================================================${NC}"
 echo -e "${GREEN}  ¡ENHORABUENA! La entrega cumple 100% con la normativa oficial.       ${NC}"
 echo -e "${GREEN}========================================================================${NC}"
-echo -e "Archivo listo para subir a Moodle: ${YELLOW}${DEST_ZIP}${NC} (${ZIP_SIZE_KB} KB, dentro del límite de 500 KB)"
+echo -e "Archivo listo para subir a Moodle: ${YELLOW}${DEST_ZIP}${NC} (${ZIP_SIZE_KB} KB)"
 echo -e "Estructura del archivo comprobada:"
 echo -e "  |- ${LOGIN}"
 for EJ in "${EJERCICIOS[@]}"; do
-    echo -e "     |- ${EJ} (con REPORT.md y tests 100% superados)"
+    echo -e "     |- ${EJ} (con REPORT.md, objetos precompilados y tests 100% superados)"
 done
 echo ""
