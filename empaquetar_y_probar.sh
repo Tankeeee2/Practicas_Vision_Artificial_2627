@@ -329,6 +329,9 @@ for EJ in "${EJERCICIOS_ZIP[@]}"; do
 
     echo -e "-> ${YELLOW}cd ${EJ}${NC}"
     cd "${EJ}"
+    if [ -d "${BASE_DIR}/${EJ}/data" ] && [ ! -d "data" ]; then
+        ln -sf "${BASE_DIR}/${EJ}/data" data
+    fi
 
     if [ ! -f "REPORT.md" ]; then
         echo -e "${RED}[FALLO] Falta REPORT.md en '${LOGIN}/${EJ}'${NC}"
