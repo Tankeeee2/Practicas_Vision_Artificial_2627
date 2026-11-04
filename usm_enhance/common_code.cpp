@@ -178,10 +178,8 @@ fsiv_usm_enhance(cv::Mat const &in, double g, int r,
     
     cv::Mat in_low = fsiv_filter2D(in_exp,filter);
 
-    cv::Mat unsharp = in - in_low;
-
     if (unsharp_mask != nullptr) {
-        *unsharp_mask = unsharp;
+        *unsharp_mask = in_low;
     }
     
     ret_v = fsiv_soft_combine_images(in,in_low,1.0 + g,-g);

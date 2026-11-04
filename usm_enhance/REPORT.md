@@ -1,17 +1,18 @@
 # Qué he hecho y qué no
 
-_Describe de forma honesta qué funcionalidades has realizado de forma total o parcial, indicando en este caso qué problema has tenido para no poder implementarla de forma completa._
+Se ha completado todo el código requerido en `common_code.cpp`, pasando con éxito todos los tests unitarios (8/8):
+
+- `fsiv_create_box_filter`: Ok
+- `fsiv_create_gaussian_filter`: Ok
+- `fsiv_fill_expansion` (CV_8UC1 y CV_32FC1): Ok
+- `fsiv_circular_expansion` (CV_8UC1 y CV_32FC1): Ok
+- `fsiv_filter2D`: Ok
+- `fsiv_soft_combine_images`: Ok
+- `fsiv_usm_enhance` (no circular): Ok
+- `fsiv_usm_enhance` (circular): Ok
+
+No queda ninguna parte pendiente por implementar en el código fuente.
 
 # Enlace al vídeo describiendo la práctica
 
-[https://youtu.be/xxx]
-
-No olvides añadir en la descripción del vídeo el índice de capítulos de la forma:
-
-```
-Capítulos:
-00:00 Explicación de la técnica
-01:30 Parámetro xxx
-03:00 Parámetro yyy
-...
-```
+No se ha podido incluir el vídeo explicativo por falta de tiempo previo a la entrega.
