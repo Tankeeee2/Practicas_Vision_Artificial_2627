@@ -1,17 +1,16 @@
 # Qué he hecho y qué no
 
-_Describe de forma honesta qué funcionalidades has realizado de forma total o parcial, indicando en este caso qué problema has tenido para no poder implementarla de forma completa._
+Se ha completado todo el código requerido en `common_code.cpp`, pasando con éxito todos los tests unitarios (6/6):
+
+- `fsiv_generate_3d_calibration_points`: Ok
+- `fsiv_fast_find_chessboard_corners`: Ok
+- `fsiv_compute_camera_pose`: Ok
+- `fsiv_draw_axes`: Ok
+- `fsiv_load_calibration_parameters`: Ok
+- `fsiv_project_image`: Ok
+
+No queda ninguna parte pendiente por implementar en el código fuente.
 
 # Enlace al vídeo describiendo la práctica
 
-[https://youtu.be/xxx]
-
-No olvides añadir en la descripción del vídeo el índice de capítulos de la forma:
-
-```
-Capítulos:
-00:00 Explicación de la técnica
-01:30 Parámetro xxx
-03:00 Parámetro yyy
-...
-```
+No he hecho vídeo para la práctica.
