@@ -20,7 +20,10 @@ void fsiv_compute_dense_optical_flow(cv::Mat const &prev,
     // Remember: if flow is not empty, you must use it as initial estimate
     //    setting the corresponding flag in the algorithm. If it is empty, unset
     //    this flag.
-
+    if(alg == nullptr){alg = cv::FarnebackOpticalFlow::create();}
+    if(!flow.empty()){alg->setFlags(cv::OPTFLOW_USE_INITIAL_FLOW);}
+    else{alg->setFlags(0);}
+    alg->calc(prev, next, flow); 
     //
     CV_Assert(flow.type() == CV_32FC2);
 }
@@ -31,7 +34,9 @@ void fsiv_compute_optical_flow_magnitude(cv::Mat &flow, cv::Mat &mag)
 
     // TODO
     // Hint: use cv::magnitude.
-
+    std::vector<cv::Mat> mat;
+    cv::split(flow, mat);
+    cv::magnitude(mat[0], mat[1], mag);
     //
     CV_Assert(mag.type() == CV_32FC1);
 }
@@ -42,7 +47,7 @@ fsiv_create_structuring_element(int ste_r, int type)
     cv::Mat ste;
     // TODO
     // Hint: use cv::getStructuringElement.
-
+    ste = cv::getStructuringElement(type, cv::Size(2 * ste_r + 1, 2 * ste_r + 1));
     //
     return ste;
 }
@@ -73,7 +78,23 @@ void fsiv_compute_of_foreground_mask(cv::Mat const &prev, cv::Mat const &curr,
     // 5. If alpha>0.0 (and input mask is not empty), update mask using a
     //    running average (new_mask = alpha*old_mask + (1-alpha)*current_mask).
     //    When alpha=0.0, new_mask = current_mask. Hint: use cv::addWeighted() for this.
-
+    cv::Mat mag, current_mask;
+    fsiv_compute_dense_optical_flow(prev, curr, flow);
+    fsiv_compute_optical_flow_magnitude(flow, mag);
+    if(flow_mag_out!=nullptr){
+        *flow_mag_out=mag;
+    }
+    current_mask = mag >= t;
+    if(ste_r > 0){
+        cv::Mat ste = fsiv_create_structuring_element(ste_r, ste_type);
+        cv::dilate(current_mask, current_mask, ste);
+    }
+    if(alpha > 0.0 && !mask.empty()){
+        cv::addWeighted(mask, alpha, current_mask, 1.0 - alpha, 0.0, mask);
+    }
+    else{
+        mask = current_mask;
+    }        
         //
     CV_Assert(mask.size() == prev.size());
     CV_Assert(mask.type() == CV_8UC1);
@@ -92,6 +113,14 @@ void fsiv_blur_background(cv::Mat const &input,
     // Hint: use cv::blur or cv::GaussianBlur to blur an image.
     // Hint: use cv::Mat::copyTo with mask to fuse foreground and background.
 
+    int k_size = 2 * blur_r + 1;
+    if (blur_type)
+        cv::GaussianBlur(input, output, cv::Size(k_size, k_size), 0);
+    else
+        cv::blur(input, output, cv::Size(k_size, k_size));
+
+    // Pegamos el primer plano (sin desenfocar) encima del fondo desenfocado usando la mascara
+    input.copyTo(output, fg_mask);
     //
 
     CV_Assert(output.type() == input.type());
